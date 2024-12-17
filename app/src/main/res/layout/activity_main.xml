@@ -1,0 +1,65 @@
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- PreviewView for camera preview -->
+
+    <!-- ImageView -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/viewFinder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
+
+        <TextView
+            android:id="@+id/text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"
+            android:text="Identifying..."
+            android:textColor="@android:color/white"
+            android:textSize="20sp" />
+    </androidx.camera.view.PreviewView>
+
+    <ImageView
+        android:id="@+id/imageview1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/image_description" />
+
+    <!-- TextViews -->
+
+    <TextView
+        android:id="@+id/no_face_detected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="No face detected"
+        android:textSize="18sp"
+        android:textColor="@android:color/holo_red_dark"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/statusTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Status will be displayed here"
+        android:textSize="18sp"
+        android:layout_centerInParent="true"
+        android:padding="16dp" />
+
+    <!-- Button -->
+    <Button
+        android:id="@+id/btncamera_id"
+        android:layout_width="155dp"
+        android:layout_height="109dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:text="@string/camera_button" />
+
+</FrameLayout>
