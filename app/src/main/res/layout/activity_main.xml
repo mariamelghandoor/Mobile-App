@@ -44,14 +44,25 @@
         android:textColor="@android:color/holo_red_dark"
         android:visibility="gone" />
 
+<!--    <TextView-->
+<!--        android:id="@+id/statusTextView"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:text="Status will be displayed here"-->
+<!--        android:textSize="18sp"-->
+<!--        android:layout_centerInParent="true"-->
+<!--        android:padding="16dp" />-->
+
     <TextView
-        android:id="@+id/statusTextView"
+        android:id="@+id/predictedLabelTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Status will be displayed here"
+        android:text="Prediction will appear here"
         android:textSize="18sp"
-        android:layout_centerInParent="true"
-        android:padding="16dp" />
+        android:layout_marginTop="210dp"
+        android:layout_gravity="center"
+        android:textColor="@android:color/black"
+        android:visibility="gone" />
 
     <!-- Button -->
     <Button

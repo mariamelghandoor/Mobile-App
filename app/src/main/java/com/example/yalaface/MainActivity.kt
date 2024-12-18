@@ -1,5 +1,6 @@
 package com.example.yalaface
 
+import android.view.View
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -34,9 +35,15 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Color
 import org.opencv.core.Size
-import android.graphics.Matrix
+import android.os.Handler
+import android.os.Looper
 import android.media.ExifInterface
-
+import org.tensorflow.lite.Interpreter
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.io.FileInputStream
+import java.nio.channels.FileChannel
+import android.widget.TextView
 
 
 class MainActivity : AppCompatActivity() {
@@ -44,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var imageView: ImageView
     private lateinit var imageCapture: ImageCapture
     private var faceCascade: CascadeClassifier? = null
+    private lateinit var predictedLabelTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +59,7 @@ class MainActivity : AppCompatActivity() {
 
         btnCapture = findViewById(R.id.btncamera_id)
         imageView = findViewById(R.id.imageview1)
+        predictedLabelTextView = findViewById(R.id.predictedLabelTextView)
 
         // Initialize OpenCV
         if (!OpenCVLoader.initDebug()) {
@@ -227,8 +236,13 @@ class MainActivity : AppCompatActivity() {
                 // Save cropped face
                 saveBitmap(resizedFaceBitmap, "cropped_face")
 
+                val prediction = predictFaceClass(resizedFaceBitmap)
+                val predictedLabel = class_labels[prediction]
+                updatePredictedLabel(predictedLabel)
+
                 withContext(Dispatchers.Main) {
-                    imageView.setImageBitmap(resizedFaceBitmap)
+//                    imageView.setImageBitmap(resizedFaceBitmap)
+                    Toast.makeText(this@MainActivity, "Detected: $predictedLabel", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 withContext(Dispatchers.Main) {
@@ -240,6 +254,74 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Error processing image", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+    private fun predictFaceClass(bitmap: Bitmap): Int {
+        // Load TFLite model (as ByteBuffer)
+        val model = Interpreter(loadModelFile("model.tflite"))
+
+        // Preprocess the image
+        val input = preprocessBitmap(bitmap)
+
+        // Prepare output buffer
+        val output = Array(1) { FloatArray(class_labels.size) }
+
+        // Run inference
+        model.run(input, output)
+
+        // Get the index of the max value (predicted class)
+        return output[0].indices.maxByOrNull { output[0][it] } ?: -1
+    }
+
+    private fun preprocessBitmap(bitmap: Bitmap): ByteBuffer {
+        val inputSize = 160
+        val buffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3)
+        buffer.order(ByteOrder.nativeOrder())
+
+        val intValues = IntArray(inputSize * inputSize)
+        bitmap.getPixels(intValues, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+
+        for (pixel in intValues) {
+            val r = (pixel shr 16 and 0xFF) / 255.0f
+            val g = (pixel shr 8 and 0xFF) / 255.0f
+            val b = (pixel and 0xFF) / 255.0f
+            buffer.putFloat(r)
+            buffer.putFloat(g)
+            buffer.putFloat(b)
+        }
+
+        return buffer
+    }
+    private fun loadModelFile(fileName: String): ByteBuffer {
+        val assetFileDescriptor = assets.openFd(fileName)
+        val fileInputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
+        val fileChannel = fileInputStream.channel
+        val startOffset = assetFileDescriptor.startOffset
+        val declaredLength = assetFileDescriptor.declaredLength
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+    }
+
+    private val class_labels = listOf(
+        "Akshay Kumar", "Alexandra Daddario", "Alia Bhatt", "Amitabh Bachchan", "Anas Mahmoud",
+        "Andy Samberg", "Anushka Sharma", "Billie Eilish", "Brad Pitt", "Camila Cabello",
+        "Charlize Theron", "Claire Holt", "Courtney Cox", "Dwayne Johnson", "Elizabeth Olsen",
+        "Ellen Degeneres", "Henry Cavill", "Hrithik Roshan", "Hugh Jackman", "Jessica Alba",
+        "Kashyap", "Lisa Kudrow", "Margot Robbie", "Marmik", "Natalie Portman",
+        "Priyanka Chopra", "Robert Downey Jr", "Roger Federer", "Tom Cruise", "Vijay Deverakonda",
+        "Virat Kohli", "Zac Efron", "ben_afflek", "chris_evans", "chris_hemsworth",
+        "elton_john", "jerry_seinfeld", "madonna", "mark_ruffalo", "mindy_kaling",
+        "robert_downey_jr", "salma_sherif", "scarlett_johansson"
+    )
+    private fun updatePredictedLabel(predictedLabel: String) {
+        val textView: TextView = findViewById(R.id.predictedLabelTextView)
+
+        // Show the TextView and set the predicted label
+        textView.text = "Predicted Class: $predictedLabel"
+        textView.visibility = View.VISIBLE
+
+        // Hide the TextView after 3 seconds
+        Handler(Looper.getMainLooper()).postDelayed({
+            textView.visibility = View.GONE
+        }, 3000) // 3000 milliseconds = 3 seconds
     }
 
 
