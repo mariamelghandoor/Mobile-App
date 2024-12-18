@@ -2,7 +2,6 @@ package com.example.yalaface
 
 import android.view.View
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -44,7 +43,11 @@ import java.nio.ByteOrder
 import java.io.FileInputStream
 import java.nio.channels.FileChannel
 import android.widget.TextView
-
+import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.usermodel.Sheet
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import java.io.FileOutputStream
+import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
     private lateinit var btnCapture: Button
@@ -52,10 +55,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var imageCapture: ImageCapture
     private var faceCascade: CascadeClassifier? = null
     private lateinit var predictedLabelTextView: TextView
+    private lateinit var excelFile: File
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val uniqueId = UUID.randomUUID().toString()
+        val fileName = "predictions_$uniqueId.xlsx"
 
         btnCapture = findViewById(R.id.btncamera_id)
         imageView = findViewById(R.id.imageview1)
@@ -76,6 +84,15 @@ class MainActivity : AppCompatActivity() {
             startCamera()
         } else {
             requestPermissions.launch(REQUIRED_PERMISSIONS)
+        }
+
+        excelFile = File(applicationContext.getExternalFilesDir(null), fileName)
+        if (!excelFile.exists()) {
+            val workbook = XSSFWorkbook()
+            val sheet = workbook.createSheet("Predictions")
+            val fileOut = FileOutputStream(excelFile)
+            workbook.write(fileOut)
+            fileOut.close()
         }
 
         // Handle capture button click
@@ -239,21 +256,24 @@ class MainActivity : AppCompatActivity() {
                 val prediction = predictFaceClass(resizedFaceBitmap)
                 val predictedLabel = class_labels[prediction]
                 updatePredictedLabel(predictedLabel)
-
                 withContext(Dispatchers.Main) {
 //                    imageView.setImageBitmap(resizedFaceBitmap)
                     Toast.makeText(this@MainActivity, "Detected: $predictedLabel", Toast.LENGTH_SHORT).show()
                 }
+                savePredictionsToExcel(predictedLabel,excelFile)
+
             } else {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "No face detected", Toast.LENGTH_SHORT).show()
                 }
             }
+
         } catch (e: IOException) {
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@MainActivity, "Error processing image", Toast.LENGTH_SHORT).show()
             }
         }
+
     }
     private fun predictFaceClass(bitmap: Bitmap): Int {
         // Load TFLite model (as ByteBuffer)
@@ -323,6 +343,38 @@ class MainActivity : AppCompatActivity() {
             textView.visibility = View.GONE
         }, 3000) // 3000 milliseconds = 3 seconds
     }
+
+    private fun savePredictionsToExcel(predictedLabel: String, excelFile: File) {
+        try {
+            val workbook: XSSFWorkbook = if (excelFile.exists()) {
+                val fis = FileInputStream(excelFile)
+                XSSFWorkbook(fis)
+            } else {
+                XSSFWorkbook() // Create a new workbook if the file does not exist
+            }
+
+            val sheet: Sheet = workbook.getSheetAt(0) ?: workbook.createSheet("Predictions")
+
+            // Find the last row to append new data
+            val lastRowNum = sheet.physicalNumberOfRows
+            val row: Row = sheet.createRow(lastRowNum)
+
+            // Create a cell for the predicted label
+            row.createCell(0).setCellValue(predictedLabel)
+
+            // Write the workbook to a file
+            val fileOut = FileOutputStream(excelFile)
+            workbook.write(fileOut)
+            fileOut.close()
+
+            // Show a toast to indicate the file has been saved
+            Toast.makeText(this, "Prediction saved to $excelFile", Toast.LENGTH_SHORT).show()
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error saving prediction to Excel: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
 
     private fun saveBitmap(bitmap: Bitmap, filename: String) {
