@@ -214,53 +214,69 @@ class MainActivity : AppCompatActivity() {
                 1.2, // Lower scale factor for better detection of smaller faces
                 2,   // Reduce minNeighbors for less strict detection
                 0,   // Flags
-                Size(200.0, 200.0), // Allow smaller face sizes
+                Size(100.0, 100.0), // Allow smaller face sizes
                 Size() // Max size (leave empty if no limit)
             )
 
-
-            if (faces.toArray().isNotEmpty()) {
-                val faceRect = faces.toArray()[0]
-                val faceX = faceRect.x
-                val faceY = faceRect.y
-                val faceWidth = faceRect.width
-                val faceHeight = faceRect.height
-
-                // Draw rectangle around detected face
+            val detectedFaces = faces.toArray()
+            val detectedLabels = mutableListOf<String>()
+            if (detectedFaces.isNotEmpty()) {
                 val canvas = Canvas(downscaledBitmap)
                 val paint = Paint()
                 paint.color = Color.RED
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = 10f
-                canvas.drawRect(
-                    faceX.toFloat(),
-                    faceY.toFloat(),
-                    (faceX + faceWidth).toFloat() ,
-                    (faceY + faceHeight).toFloat() ,
-                    paint
-                )
-                // Save image with rectangle
-                saveBitmap(downscaledBitmap, "detected_face")
 
-                // Crop face to square
-                val faceSize = minOf(faceWidth, faceHeight)
-                val offset = (faceWidth - faceSize) / 2
-                val faceBitmap = Bitmap.createBitmap(downscaledBitmap, faceX + offset, faceY, faceSize, faceSize)
+                for ((index, faceRect) in detectedFaces.withIndex()) {
+                    val faceX = faceRect.x
+                    val faceY = faceRect.y
+                    val faceWidth = faceRect.width
+                    val faceHeight = faceRect.height
 
-                // Resize face to 160x160
-                val resizedFaceBitmap = Bitmap.createScaledBitmap(faceBitmap, 160, 160, true)
+                    // Draw rectangle around detected face
+                    canvas.drawRect(
+                        faceX.toFloat(),
+                        faceY.toFloat(),
+                        (faceX + faceWidth).toFloat(),
+                        (faceY + faceHeight).toFloat(),
+                        paint
+                    )
 
-                // Save cropped face
-                saveBitmap(resizedFaceBitmap, "cropped_face")
+                    // Crop face to square
+                    val faceSize = minOf(faceWidth, faceHeight)
+                    val offset = (faceWidth - faceSize) / 2
+                    val faceBitmap = Bitmap.createBitmap(downscaledBitmap, faceX + offset, faceY, faceSize, faceSize)
 
-                val prediction = predictFaceClass(resizedFaceBitmap)
-                val predictedLabel = class_labels[prediction]
-                updatePredictedLabel(predictedLabel)
-                withContext(Dispatchers.Main) {
-//                    imageView.setImageBitmap(resizedFaceBitmap)
-                    Toast.makeText(this@MainActivity, "Detected: $predictedLabel", Toast.LENGTH_SHORT).show()
+                    // Resize face to 160x160
+                    val resizedFaceBitmap = Bitmap.createScaledBitmap(faceBitmap, 160, 160, true)
+
+                    // Save cropped face
+                    saveBitmap(resizedFaceBitmap, "cropped_face_$index")
+
+                    // Predict the face
+                    val prediction = predictFaceClass(resizedFaceBitmap)
+                    val predictedLabel = class_labels[prediction]
+                    detectedLabels.add("Face $index: $predictedLabel")
+
+                    // Save predictions to Excel
+                    savePredictionsToExcel(predictedLabel, excelFile)
                 }
-                savePredictionsToExcel(predictedLabel,excelFile)
+
+                if (detectedLabels.isNotEmpty()) {
+                    val predictions = buildString {
+                        append("Predictions (${detectedLabels.size}):\n")
+                        detectedLabels.forEachIndexed { index, label ->
+                            append("${index + 1}: $label\n")
+                        }
+                    }
+                    updatePredictedLabel(predictions)
+                } else {
+                    updatePredictedLabel("No faces detected")
+                }
+
+
+                // Save image with rectangles
+                saveBitmap(downscaledBitmap, "detected_faces")
 
             } else {
                 withContext(Dispatchers.Main) {
@@ -368,7 +384,7 @@ class MainActivity : AppCompatActivity() {
             fileOut.close()
 
             // Show a toast to indicate the file has been saved
-            Toast.makeText(this, "Prediction saved to $excelFile", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Prediction saved", Toast.LENGTH_SHORT).show()
 
         } catch (e: Exception) {
             Toast.makeText(this, "Error saving prediction to Excel: ${e.message}", Toast.LENGTH_SHORT).show()

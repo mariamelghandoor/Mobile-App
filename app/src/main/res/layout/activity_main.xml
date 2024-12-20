@@ -8,10 +8,11 @@
     <!-- PreviewView for camera preview -->
 
     <!-- ImageView -->
+
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" >
+        android:layout_height="match_parent">
 
         <TextView
             android:id="@+id/text"
@@ -44,25 +45,29 @@
         android:textColor="@android:color/holo_red_dark"
         android:visibility="gone" />
 
-<!--    <TextView-->
-<!--        android:id="@+id/statusTextView"-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:text="Status will be displayed here"-->
-<!--        android:textSize="18sp"-->
-<!--        android:layout_centerInParent="true"-->
-<!--        android:padding="16dp" />-->
+
 
     <TextView
         android:id="@+id/predictedLabelTextView"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Prediction will appear here"
-        android:textSize="18sp"
-        android:layout_marginTop="210dp"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:padding="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
         android:layout_gravity="center"
-        android:textColor="@android:color/black"
-        android:visibility="gone" />
+        android:textAlignment="center"
+        android:background="#BBA7DE"
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        android:elevation="4dp"
+        android:shadowColor="@android:color/darker_gray"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="4" />
+
 
     <!-- Button -->
     <Button
