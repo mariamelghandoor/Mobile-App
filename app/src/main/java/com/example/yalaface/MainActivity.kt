@@ -51,21 +51,24 @@ import java.util.UUID
 import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
+
+    // widgets in screen
     private lateinit var btnCapture: Button
     private lateinit var imageView: ImageView
+    private lateinit var predictedLabelTextView: TextView
+    // global variables to use
     private lateinit var imageCapture: ImageCapture
     private var faceCascade: CascadeClassifier? = null
-    private lateinit var predictedLabelTextView: TextView
     private lateinit var excelFile: File
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        // ensure uniqe id for each session
         val uniqueId = UUID.randomUUID().toString()
         val fileName = "predictions_$uniqueId.xlsx"
-
+        // initialize the widgets
         btnCapture = findViewById(R.id.btncamera_id)
         imageView = findViewById(R.id.imageview1)
         predictedLabelTextView = findViewById(R.id.predictedLabelTextView)
@@ -87,6 +90,7 @@ class MainActivity : AppCompatActivity() {
             requestPermissions.launch(REQUIRED_PERMISSIONS)
         }
 
+        // initialize my excel sheet
         excelFile = File(applicationContext.getExternalFilesDir(null), fileName)
         if (!excelFile.exists()) {
             val workbook = XSSFWorkbook()
@@ -104,6 +108,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadFaceDetectionModel() {
+        // load the file and copying it to work with the copy
         val inputStream = assets.open("haarcascade_frontalface_default.xml")
         val cascadeDir = getDir("cascade", MODE_PRIVATE)
         val cascadeFile = File(cascadeDir, "haarcascade_frontalface_default.xml")
@@ -114,6 +119,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // make sure my copy is not empty
         faceCascade = CascadeClassifier(cascadeFile.absolutePath)
         if (faceCascade?.empty() == true) {
             faceCascade = null
@@ -122,6 +128,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Face detection model loaded successfully", Toast.LENGTH_SHORT).show()
         }
     }
+    // loading my labels in list from my txt file
     private fun loadClassLabels(): List<String> {
         val classLabels = mutableListOf<String>()
         try {
@@ -137,18 +144,25 @@ class MainActivity : AppCompatActivity() {
         return classLabels
     }
 
+
     private fun startCamera() {
+        // interaction with camerax
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        // to display when the camera is done
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
+            // make what the camera see i see too live
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(findViewById<PreviewView>(R.id.viewFinder).surfaceProvider)
             }
 
             imageCapture = ImageCapture.Builder().build()
+            // choose back camera
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
+                //This ensures that the camera starts when the activity is created
+                //and is released when the activity is destroyed.
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
             } catch (exc: Exception) {
@@ -160,7 +174,7 @@ class MainActivity : AppCompatActivity() {
     private fun takePhoto() {
         val photoFile = File(getOutputDirectory(), "${getFileName()}.jpg")
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-
+        // use the instance i made up
         imageCapture.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(this),
@@ -172,14 +186,13 @@ class MainActivity : AppCompatActivity() {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                     lifecycleScope.launch {
-                        // Pass photoFile.absolutePath as filePath to the processImage function
                         processImage(bitmap, photoFile.absolutePath)
                     }
                 }
             }
         )
     }
-
+    // fix that the phone takes imgs reotated
     fun rotateImageIfNeeded(bitmap: Bitmap, filePath: String): Bitmap {
         val exif = ExifInterface(filePath)
         val rotation = when (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
@@ -189,7 +202,7 @@ class MainActivity : AppCompatActivity() {
             else -> 0
         }
 
-        // Rotate the image if necessary
+        // Rotate the image
         if (rotation != 0) {
             val matrix = android.graphics.Matrix()
             matrix.postRotate(rotation.toFloat())
@@ -199,8 +212,10 @@ class MainActivity : AppCompatActivity() {
         return bitmap
     }
 
+    // prediction , preproccessing, and displaying
     private suspend fun processImage(bitmap: Bitmap, filePath: String) {
         try {
+            // load the txt file
             val classLabels = loadClassLabels()
             // Rotate the image
             val rotatedBitmap = rotateImageIfNeeded(bitmap, filePath)
@@ -208,8 +223,10 @@ class MainActivity : AppCompatActivity() {
             // Create a mutable copy of the rotated bitmap
             val mutableBitmap = rotatedBitmap.copy(Bitmap.Config.ARGB_8888, true)
 
+            // make it smaller so when cropping it wont get messed up
             val downscaledBitmap = Bitmap.createScaledBitmap(mutableBitmap, 640, 864, true)
 
+            // load detection file of opencv
             val cascadeFile = copyCascadeFile("haarcascade_frontalface_default.xml")
             val faceCascade = CascadeClassifier(cascadeFile.absolutePath)
 
@@ -217,23 +234,27 @@ class MainActivity : AppCompatActivity() {
                 throw IOException("Failed to load cascade file")
             }
 
+
+            // make gray for less complex detection
             val mat = Mat()
             Utils.bitmapToMat(downscaledBitmap, mat)
 
             val grayMat = Mat()
             Imgproc.cvtColor(mat, grayMat, Imgproc.COLOR_RGB2GRAY)
 
+            // specify the face aspects
             val faces = MatOfRect()
             faceCascade.detectMultiScale(
                 grayMat,
                 faces,
                 1.2, // Lower scale factor for better detection of smaller faces
                 2,   // Reduce minNeighbors for less strict detection
-                0,   // Flags
+                0,
                 Size(100.0, 100.0), // Allow smaller face sizes
-                Size() // Max size (leave empty if no limit)
+                Size() // Max size
             )
 
+            // loop on the faces if exists
             val detectedFaces = faces.toArray()
             val detectedLabels = mutableListOf<String>()
             if (detectedFaces.isNotEmpty()) {
@@ -295,6 +316,7 @@ class MainActivity : AppCompatActivity() {
                 saveBitmap(downscaledBitmap, "detected_faces")
 
             } else {
+                // if no face exists
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "No face detected", Toast.LENGTH_SHORT).show()
                 }
@@ -308,7 +330,7 @@ class MainActivity : AppCompatActivity() {
 
     }
     private fun predictFaceClass(bitmap: Bitmap): Int {
-        // Load TFLite model (as ByteBuffer)
+        // Load TFLite model
         val classLabels = loadClassLabels()
         val model = Interpreter(loadModelFile("model.tflite"))
 
@@ -316,7 +338,7 @@ class MainActivity : AppCompatActivity() {
         val input = preprocessBitmap(bitmap)
 
         // Prepare output buffer
-        val output = Array(1) { FloatArray(classLabels.size) }
+        val output = Array(1) { FloatArray(classLabels.size) } // number of classes
 
         // Run inference
         model.run(input, output)
@@ -344,6 +366,8 @@ class MainActivity : AppCompatActivity() {
 
         return buffer
     }
+
+    // helps in loading models from assets
     private fun loadModelFile(fileName: String): ByteBuffer {
         val assetFileDescriptor = assets.openFd(fileName)
         val fileInputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
@@ -353,6 +377,7 @@ class MainActivity : AppCompatActivity() {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
+    // displayed text to predicted people
     private fun updatePredictedLabel(predictedLabel: String) {
         val textView: TextView = findViewById(R.id.predictedLabelTextView)
 
@@ -366,6 +391,7 @@ class MainActivity : AppCompatActivity() {
         }, 3000) // 3000 milliseconds = 3 seconds
     }
 
+    // save to excel wil the file name specified up
     private fun savePredictionsToExcel(predictedLabel: String, excelFile: File) {
         try {
             val workbook: XSSFWorkbook = if (excelFile.exists()) {
@@ -398,7 +424,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
+    // save imgs to storage
     private fun saveBitmap(bitmap: Bitmap, filename: String) {
         val file = File(getOutputDirectory(), "$filename.jpg")
         file.outputStream().use { out ->
@@ -406,6 +432,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // copy for write access
     private fun copyCascadeFile(fileName: String): File {
         val cascadeDir = File(filesDir, "cascade")
         if (!cascadeDir.exists()) {
@@ -422,13 +449,6 @@ class MainActivity : AppCompatActivity() {
         return cascadeFile
     }
 
-
-    private fun saveBitmap(bitmap: Bitmap) {
-        val faceFile = File(getOutputDirectory(), "face_${getFileName()}.jpg")
-        faceFile.outputStream().use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-        }
-    }
 
     private fun getOutputDirectory(): File {
         val mediaDir = externalMediaDirs.firstOrNull()?.let {
