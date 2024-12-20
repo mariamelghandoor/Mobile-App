@@ -48,6 +48,7 @@ import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.FileOutputStream
 import java.util.UUID
+import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
     private lateinit var btnCapture: Button
@@ -121,6 +122,20 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Face detection model loaded successfully", Toast.LENGTH_SHORT).show()
         }
     }
+    private fun loadClassLabels(): List<String> {
+        val classLabels = mutableListOf<String>()
+        try {
+            val inputStream = assets.open("class_labels.txt")
+            val bufferedReader = InputStreamReader(inputStream).buffered()
+            bufferedReader.forEachLine {
+                classLabels.add(it.trim())
+            }
+            bufferedReader.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+        return classLabels
+    }
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -186,7 +201,8 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun processImage(bitmap: Bitmap, filePath: String) {
         try {
-            // Rotate the image if needed
+            val classLabels = loadClassLabels()
+            // Rotate the image
             val rotatedBitmap = rotateImageIfNeeded(bitmap, filePath)
 
             // Create a mutable copy of the rotated bitmap
@@ -255,7 +271,7 @@ class MainActivity : AppCompatActivity() {
 
                     // Predict the face
                     val prediction = predictFaceClass(resizedFaceBitmap)
-                    val predictedLabel = class_labels[prediction]
+                    val predictedLabel = classLabels[prediction]
                     detectedLabels.add("Face $index: $predictedLabel")
 
                     // Save predictions to Excel
@@ -293,13 +309,14 @@ class MainActivity : AppCompatActivity() {
     }
     private fun predictFaceClass(bitmap: Bitmap): Int {
         // Load TFLite model (as ByteBuffer)
+        val classLabels = loadClassLabels()
         val model = Interpreter(loadModelFile("model.tflite"))
 
         // Preprocess the image
         val input = preprocessBitmap(bitmap)
 
         // Prepare output buffer
-        val output = Array(1) { FloatArray(class_labels.size) }
+        val output = Array(1) { FloatArray(classLabels.size) }
 
         // Run inference
         model.run(input, output)
@@ -336,17 +353,6 @@ class MainActivity : AppCompatActivity() {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
-    private val class_labels = listOf(
-        "Akshay Kumar", "Alexandra Daddario", "Alia Bhatt", "Amitabh Bachchan", "Anas Mahmoud",
-        "Andy Samberg", "Anushka Sharma", "Billie Eilish", "Brad Pitt", "Camila Cabello",
-        "Charlize Theron", "Claire Holt", "Courtney Cox", "Dwayne Johnson", "Elizabeth Olsen",
-        "Ellen Degeneres", "Henry Cavill", "Hrithik Roshan", "Hugh Jackman", "Jessica Alba",
-        "Kashyap", "Lisa Kudrow", "Margot Robbie", "Marmik", "Natalie Portman",
-        "Priyanka Chopra", "Robert Downey Jr", "Roger Federer", "Tom Cruise", "Vijay Deverakonda",
-        "Virat Kohli", "Zac Efron", "ben_afflek", "chris_evans", "chris_hemsworth",
-        "elton_john", "jerry_seinfeld", "madonna", "mark_ruffalo", "mindy_kaling",
-        "robert_downey_jr", "salma_sherif", "scarlett_johansson"
-    )
     private fun updatePredictedLabel(predictedLabel: String) {
         val textView: TextView = findViewById(R.id.predictedLabelTextView)
 
