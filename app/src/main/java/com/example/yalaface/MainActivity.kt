@@ -49,6 +49,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.FileOutputStream
 import java.util.UUID
 import java.io.InputStreamReader
+import java.time.LocalDate
+import java.time.LocalTime
 
 class MainActivity : AppCompatActivity() {
 
@@ -407,8 +409,14 @@ class MainActivity : AppCompatActivity() {
             val lastRowNum = sheet.physicalNumberOfRows
             val row: Row = sheet.createRow(lastRowNum)
 
-            // Create a cell for the predicted label
-            row.createCell(0).setCellValue(predictedLabel)
+            // Get current date and time
+            val currentDate = LocalDate.now().toString()
+            val currentTime = LocalTime.now().toString()
+
+            // Create cells for the predicted label, date, and time
+            row.createCell(0).setCellValue(predictedLabel) // Column A: Predicted Label
+            row.createCell(1).setCellValue(currentDate)    // Column B: Date
+            row.createCell(2).setCellValue(currentTime)    // Column C: Time
 
             // Write the workbook to a file
             val fileOut = FileOutputStream(excelFile)
@@ -422,6 +430,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Error saving prediction to Excel: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
+
 
 
     // save imgs to storage
